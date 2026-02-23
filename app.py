@@ -16,7 +16,8 @@ from difflib import SequenceMatcher
 
 st.set_page_config(page_title="Python Warriors AI", layout="centered")
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+# ✅ Using Streamlit secrets instead of os.environ
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 LEADERBOARD_FILE = "leaderboard.csv"
 USERS_FILE = "users.csv"
@@ -133,18 +134,18 @@ def similarity(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
 # =========================
-# EMAIL FUNCTION
+# EMAIL FUNCTION (UPDATED)
 # =========================
 
 def send_email(feedback, score):
     try:
-        EMAIL_USER = os.environ["EMAIL_USER"]
-        EMAIL_PASS = os.environ["EMAIL_PASS"]
+        EMAIL_USER = st.secrets["EMAIL_USER"]
+        EMAIL_PASS = st.secrets["EMAIL_PASS"]
 
         msg = EmailMessage()
         msg["Subject"] = "Your Python Assignment Result"
         msg["From"] = EMAIL_USER
-        msg["To"] = EMAIL_USER  # For demo, sends to teacher
+        msg["To"] = EMAIL_USER  # Change to student email later
 
         msg.set_content(f"""
 Student: {st.session_state.username}
@@ -159,8 +160,8 @@ Feedback:
             smtp.login(EMAIL_USER, EMAIL_PASS)
             smtp.send_message(msg)
 
-    except:
-        pass
+    except Exception as e:
+        st.error(f"Email error: {e}")
 
 # =========================
 # ANALYSIS BUTTON
@@ -204,7 +205,6 @@ if uploaded_file:
                 code = uploaded_file.read().decode("utf-8")
                 st.code(code)
 
-                # PLAGIARISM CHECK
                 submissions = pd.read_csv(SUBMISSIONS_FILE)
 
                 for old_code in submissions["Code"]:
@@ -220,7 +220,6 @@ if uploaded_file:
                 with st.spinner("Analyzing code..."):
                     feedback = analyze_with_ai(messages)
 
-                # Save submission
                 new_sub = pd.DataFrame(
                     [[st.session_state.username, code]],
                     columns=["Username", "Code"]
@@ -238,7 +237,6 @@ if uploaded_file:
             if score == 10:
                 st.balloons()
 
-            # SAVE TO LEADERBOARD
             leaderboard = pd.read_csv(LEADERBOARD_FILE)
             new_entry = pd.DataFrame(
                 [[st.session_state.username, score]],
@@ -247,10 +245,8 @@ if uploaded_file:
             leaderboard = pd.concat([leaderboard, new_entry], ignore_index=True)
             leaderboard.to_csv(LEADERBOARD_FILE, index=False)
 
-            # SEND EMAIL
             send_email(feedback, score)
 
-            # INCREMENT USAGE
             st.session_state.daily_usage += 1
 
         except Exception as e:
